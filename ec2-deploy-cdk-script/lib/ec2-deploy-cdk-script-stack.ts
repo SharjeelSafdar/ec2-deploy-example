@@ -150,6 +150,7 @@ export class Ec2DeployCdkScriptStack extends Stack {
               "npm run build",
               "cp ../ec2-deploy-cdk-script/ec2/appspec.yml ./build/",
               "cp -r ../ec2-deploy-cdk-script/ec2/scripts/ ./build/",
+              "cd ./build",
               "ls",
             ],
           },

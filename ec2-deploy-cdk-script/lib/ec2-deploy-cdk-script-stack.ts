@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import { Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as codeBuild from "aws-cdk-lib/aws-codebuild";
 import * as codeDeploy from "aws-cdk-lib/aws-codedeploy";
@@ -66,13 +67,17 @@ export class Ec2DeployCdkScriptStack extends Stack {
       ec2.Port.tcp(22),
       "Allow public access to the web app instance."
     );
+    ec2Instance.connections.allowFromAnyIpv4(
+      ec2.Port.tcp(80),
+      "Allow public access to the web app instance."
+    );
     ec2Instance.addUserData(
       "#!/bin/bash",
       "sudo yum -y update",
       "sudo yum -y install ruby",
       "sudo yum -y install wget",
       "cd /home/ec2-user",
-      "wget https://aws-codedeploy-ap-south-1.s3.ap-south-1.amazonaws.com/latest/install",
+      "wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install",
       "sudo chmod +x ./install",
       "sudo ./install auto",
       "sudo yum install -y python-pip",
@@ -185,6 +190,14 @@ export class Ec2DeployCdkScriptStack extends Stack {
         }),
       ],
     });
+
+    ec2Instance.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["s3:*"],
+        resources: [`arn:aws:s3:::${builtAppArtifact.bucketName}`],
+      })
+    );
 
     cdk.Tags.of(this).add("Example", "Deploy-Webapp-EC2-CDK-Script");
   }

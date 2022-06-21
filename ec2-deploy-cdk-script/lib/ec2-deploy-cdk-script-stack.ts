@@ -195,7 +195,7 @@ export class Ec2DeployCdkScriptStack extends Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["s3:*"],
-        resources: [`arn:aws:s3:::${builtAppArtifact.bucketName}`],
+        resources: [webappDeployPipeline.artifactBucket.bucketArn],
       })
     );
 

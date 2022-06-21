@@ -1,9 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import { Stack, StackProps } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import * as iam from "aws-cdk-lib/aws-iam";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as s3 from "aws-cdk-lib/aws-s3";
 import * as codeBuild from "aws-cdk-lib/aws-codebuild";
 import * as codeDeploy from "aws-cdk-lib/aws-codedeploy";
 import * as codePipeline from "aws-cdk-lib/aws-codepipeline";
@@ -21,70 +19,36 @@ export class Ec2DeployCdkScriptStack extends Stack {
   ) {
     super(scope, id, props);
 
-    const vpc = new ec2.Vpc(this, "cacheflow-vpc", {
+    const vpc = new ec2.Vpc(this, "my-vpc", {
       maxAzs: 3,
       subnetConfiguration: [
-        // This is where database server resides.
         {
-          name: `rds-subnet-${props.environment}`,
+          name: `public-subnet-${props.environment}`,
           cidrMask: 24,
           subnetType: ec2.SubnetType.PUBLIC,
         },
       ],
     });
 
-    /******************** RDS MySql Database ********************/
-
-    // const dbInstance = new rds.DatabaseCluster(this, "cacheflow-db-cluster", {
-    //   engine: rds.DatabaseClusterEngine.auroraMysql({
-    //     version: rds.AuroraMysqlEngineVersion.VER_5_7_12,
-    //   }),
-    //   defaultDatabaseName: "cacheflow",
-    //   instanceProps: {
-    //     vpc,
-    //     vpcSubnets: {
-    //       subnetType: ec2.SubnetType.PUBLIC,
-    //     },
-    //     instanceType: ec2.InstanceType.of(
-    //       ec2.InstanceClass.T3,
-    //       props.environment === "prod"
-    //         ? ec2.InstanceSize.MEDIUM
-    //         : ec2.InstanceSize.MEDIUM
-    //     ),
-    //   },
-    //   credentials: rds.Credentials.fromGeneratedSecret("clusteradmin"),
-    //   clusterIdentifier: `cacheflow-db-cluster-${props.environment}`,
-    //   removalPolicy:
-    //     props.environment === "prod"
-    //       ? RemovalPolicy.RETAIN
-    //       : RemovalPolicy.SNAPSHOT,
-    // });
-    // dbInstance.connections.allowDefaultPortFromAnyIpv4();
-
-    // new CfnOutput(this, "credentials-secret-arn", {
-    //   value: dbInstance.secret?.secretArn!,
-    // });
-
     /******************** EC2 Instance for Frontend ********************/
 
     const ec2SecurityGroup = new ec2.SecurityGroup(this, "ec2-sg", {
       vpc,
-      securityGroupName: `cacheflow-ec2-sg-${props.environment}`,
-      description: "Allow SSH access to EC2 instances from anywhere.",
+      securityGroupName: `ec2-sg-${props.environment}`,
       allowAllOutbound: true,
     });
     ec2SecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(80),
-      "Allow public SSH access."
+      "Allow public access."
     );
 
     const keyPair = new ec2.CfnKeyPair(this, "web-app-keypair", {
-      keyName: `cacheflow-app-ec2-keypair`,
+      keyName: `webapp-ec2-keypair`,
     });
 
     const ec2Instance = new ec2.Instance(this, "web-app-ec2-instance", {
-      instanceName: `cacheflow-webapp-${props.environment}-instance`,
+      instanceName: `webapp-${props.environment}-instance`,
       vpc,
       keyName: keyPair.keyName,
       instanceType: ec2.InstanceType.of(
@@ -100,7 +64,19 @@ export class Ec2DeployCdkScriptStack extends Stack {
     });
     ec2Instance.connections.allowFromAnyIpv4(
       ec2.Port.tcp(22),
-      "Allow public access to the web app."
+      "Allow public access to the web app instance."
+    );
+    ec2Instance.addUserData(
+      "#!/bin/bash",
+      "sudo yum -y update",
+      "sudo yum -y install ruby",
+      "sudo yum -y install wget",
+      "cd /home/ec2-user",
+      "wget https://aws-codedeploy-ap-south-1.s3.ap-south-1.amazonaws.com/latest/install",
+      "sudo chmod +x ./install",
+      "sudo ./install auto",
+      "sudo yum install -y python-pip",
+      "sudo pip install awscli"
     );
 
     /******************** CI/CD Pipeline ********************/

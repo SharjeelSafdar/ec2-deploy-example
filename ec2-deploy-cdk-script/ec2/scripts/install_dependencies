@@ -1,2 +1,2 @@
 #!/bin/bash
-yum install -y httpd
+sudo amazon-linux-extras install nginx1 -y
